@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super CSS Mario World</title>
+<link rel="preconnect" href="https://fonts.cdnfonts.com">
+<style>
+@import url('https://fonts.cdnfonts.com/css/retro-mario');
+
+/* ── Custom Properties ── */
+@property --x0 { syntax: "<number>"; initial-value: 0; inherits: true }
+@property --x1 { syntax: "<number>"; initial-value: 0; inherits: true }
+@property --y0 { syntax: "<number>"; initial-value: 1; inherits: true }
+@property --y1 { syntax: "<number>"; initial-value: 1; inherits: true }
+@property --p  { syntax: "<integer>"; initial-value: 1; inherits: true }
+@property --score { syntax: "<integer>"; initial-value: 0; inherits: true }
+@property --lives { syntax: "<integer>"; initial-value: 3; inherits: true }
+
+/* ── Root ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --b: 52px;
+  --s: 90px;
+  --t: 22px;
+  --nc: 2153;
+  --sky1: #5c94fc;
+  --sky2: #3070d8;
+  --ground: #c84800;
+  --coin-gold: #f8d800;
+  --text-light: #ffccc5;
+  --shadow: #000;
+  --hud-bg: rgba(0,0,0,0.55);
+  --hud-border: #ffccc5;
+}
+
+/* ── HTML / Scroll ── */
+html {
+  animation: --y0 linear both, --x0 linear both;
+  animation-timeline: scroll(y self), scroll(x self);
+  --_i: calc(round(var(--x0)*(100vw - var(--b)), var(--b)) / var(--b));
+
+  /* parallax layered background */
+  background:
+    url(https://assets.codepen.io/1480814/bgmario.png?v=1)
+    0 100%/calc(11*var(--b)) repeat-x fixed,
+    linear-gradient(180deg, var(--sky2) 0%, var(--sky1) 60%, #8fcfff 100%);
+  background-color: var(--sky1);
+
+  container-type: scroll-state;
+  font-family: 'Retro Mario', 'Press Start 2P', monospace;
+  scrollbar-width: none;
+  overflow: scroll;
+}
+@keyframes --y0 { to { --y0: var(--nc) } }
+@keyframes --x0 { to { --x0: 1 } }
+html::-webkit-scrollbar { display: none; }
+
+/* ── Body / Grid ── */
+body {
+  display: grid;
+  height: calc(100vh + var(--nc)*40px);
+  width: 700vw;   /* wider world */
+  margin: 0;
+  image-rendering: pixelated;
+}
+
+/* ────────────────────────────────────────────
+   MARIO CHARACTER
+──────────────────────────────────────────── */
+body::before {
+  content: "";
+  width: var(--b);
+  aspect-ratio: 2/3;
+  background: url(https://assets.codepen.io/1480814/mario-a.png) 0/auto 100% no-repeat;
+  margin-top: auto;
+  position: sticky;
+  bottom: calc(2*var(--b));
+  left: 0;
+  transition: --y1 .4s, --x1 0s .3s;
+  --y1: var(--y0);
+  --x1: var(--x0);
+  --j: min(abs(var(--y0) - var(--y1)), 1);
+  --i: calc(min(abs(var(--x0) - var(--x1))*9e9, 1) + var(--j)*9e9);
+  translate: calc((100vw - var(--b))*var(--x0)) calc(-1*var(--j)*var(--s));
+  animation: m .4s steps(2, jump-none) infinite;
+  scale: sign(var(--x0) - var(--x1) + .001) 1;
+  filter: drop-shadow(2px 2px 0 #000a);
+  z-index: 10;
+  @container scroll-state(scrolled: left) { scale: -1 1; }
+}
+@keyframes m {
+  0%  { background-position: max(var(--i)*100%/3, 100%) 0 }
+  to  { background-position: max(var(--i)*200%/3, 100%) 0 }
+}
+
+/* ────────────────────────────────────────────
+   WALL & COIN ELEMENTS
+──────────────────────────────────────────── */
+wall, coin, pipe, enemy, star, mushroom {
+  position: absolute;
+}
+
+/* Shared base for all interactive blocks */
+:is(wall, coin, pipe, star, mushroom)::after,
+coin::before {
+  content: "";
+  position: fixed;
+  bottom: calc(3.5*var(--b));
+  height: var(--b);
+  aspect-ratio: 1;
+  --p: attr(p type(<integer>));
+  --y1: var(--y0);
+  --j: min(abs(var(--y0) - var(--y1)), 1);
+  left: calc(var(--p)*var(--b));
+  background: url(https://assets.codepen.io/1480814/block.png) 50%/auto 100% no-repeat;
+  transition: --y1 .4s;
+  translate: if(style(--p: var(--_i)): 0 min(-1*var(--j)*var(--s), var(--t) - var(--s)); else: 0 min(var(--t) - var(--s)););
+  image-rendering: pixelated;
+}
+
+/* Coin shine (after = block, before = coin sprite) */
+coin::after  { background-position: 100%; }
+coin::before {
+  background: url(https://assets.codepen.io/1480814/ccc.png) 0 50%/600% auto no-repeat;
+  animation: c .5s steps(6, jump-none) infinite;
+  scale: .65;
+  transition: --y1 1s;
+  translate: if(style(--p: var(--_i)): 0 min(-2*var(--j)*var(--s), var(--t) - var(--s)); else: 0 min(var(--t) - var(--s)););
+  filter: drop-shadow(0 0 6px var(--coin-gold)) brightness(1.3);
+}
+@keyframes c { to { background-position-x: 100% } }
+
+/* ── Elevated platform (raised blocks) ── */
+wall[h]::after {
+  bottom: calc((3.5 + attr(h type(<number>), 1))*var(--b));
+}
+coin[h]::after, coin[h]::before {
+  bottom: calc((3.5 + attr(h type(<number>), 1))*var(--b));
+}
+
+/* ── Pipe ── */
+pipe::after {
+  background: none;
+  width: calc(2*var(--b));
+  height: calc(3*var(--b));
+  border: 4px solid #1a6b1a;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(135deg, #3cb34a 0%, #1a6b1a 40%, #0f4a0f 100%);
+  box-shadow: inset -6px 0 12px #0006, 3px 0 0 #000;
+  bottom: calc(2*var(--b));
+  aspect-ratio: unset;
+}
+pipe::before {
+  content: "";
+  position: fixed;
+  bottom: calc(4.8*var(--b));
+  height: calc(0.5*var(--b));
+  width: calc(2.2*var(--b));
+  --p: attr(p type(<integer>));
+  left: calc((var(--p) - 0.1)*var(--b));
+  background: linear-gradient(135deg, #4dd25a 0%, #2a8a35 50%, #155a1a 100%);
+  border: 3px solid #000;
+  border-radius: 4px 4px 0 0;
+  z-index: 5;
+}
+
+/* ── Star power-up — pixel SVG via background-image ── */
+star::after {
+  content: "";
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect x='7' y='1' width='2' height='2' fill='%23ffe000'/%3E%3Crect x='6' y='3' width='4' height='2' fill='%23ffe000'/%3E%3Crect x='1' y='5' width='14' height='2' fill='%23ffe000'/%3E%3Crect x='3' y='7' width='10' height='2' fill='%23ffe000'/%3E%3Crect x='2' y='9' width='5' height='2' fill='%23ffe000'/%3E%3Crect x='9' y='9' width='5' height='2' fill='%23ffe000'/%3E%3Crect x='1' y='11' width='4' height='2' fill='%23ffe000'/%3E%3Crect x='11' y='11' width='4' height='2' fill='%23ffe000'/%3E%3Crect x='6' y='3' width='1' height='1' fill='%23fff'/%3E%3C/svg%3E")
+    center/80% no-repeat;
+  width: var(--b);
+  aspect-ratio: 1;
+  position: fixed;
+  left: calc(var(--p)*var(--b));
+  --p: attr(p type(<integer>));
+  bottom: calc(4.5*var(--b));
+  animation: starSpin 1.5s linear infinite, starFloat 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px #ffe000) drop-shadow(0 0 12px #ffa000);
+  image-rendering: pixelated;
+}
+@keyframes starSpin  { to { rotate: 360deg } }
+@keyframes starFloat { 0%,100% { translate: 0 0 } 50% { translate: 0 -10px } }
+
+/* ── Mushroom — pixel SVG ── */
+mushroom::after {
+  content: "";
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect x='5' y='1' width='6' height='1' fill='%23e00'/%3E%3Crect x='3' y='2' width='10' height='1' fill='%23e00'/%3E%3Crect x='2' y='3' width='12' height='4' fill='%23e00'/%3E%3Crect x='4' y='3' width='2' height='2' fill='%23fff'/%3E%3Crect x='10' y='3' width='2' height='2' fill='%23fff'/%3E%3Crect x='1' y='7' width='14' height='2' fill='%23e00'/%3E%3Crect x='3' y='9' width='10' height='1' fill='%23f9d'/%3E%3Crect x='4' y='10' width='8' height='4' fill='%23f9d'/%3E%3Crect x='5' y='14' width='6' height='1' fill='%23f9d'/%3E%3C/svg%3E")
+    center/80% no-repeat;
+  width: var(--b);
+  aspect-ratio: 1;
+  position: fixed;
+  left: calc(var(--p)*var(--b));
+  --p: attr(p type(<integer>));
+  bottom: calc(4.5*var(--b));
+  animation: shroomFloat 2.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 5px #ff4444);
+  image-rendering: pixelated;
+}
+@keyframes shroomFloat { 0%,100%{ translate:0 0 } 50%{ translate:0 -8px } }
+
+/* ────────────────────────────────────────────
+   ENEMY — pixel Goomba SVG
+──────────────────────────────────────────── */
+enemy::after {
+  content: "";
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect x='4' y='2' width='8' height='1' fill='%23a05000'/%3E%3Crect x='3' y='3' width='10' height='5' fill='%23c87800'/%3E%3Crect x='3' y='3' width='2' height='2' fill='%23fff'/%3E%3Crect x='11' y='3' width='2' height='2' fill='%23fff'/%3E%3Crect x='3' y='3' width='1' height='1' fill='%23000'/%3E%3Crect x='12' y='3' width='1' height='1' fill='%23000'/%3E%3Crect x='5' y='7' width='6' height='1' fill='%23000'/%3E%3Crect x='2' y='8' width='12' height='3' fill='%23c87800'/%3E%3Crect x='1' y='9' width='2' height='2' fill='%23a05000'/%3E%3Crect x='13' y='9' width='2' height='2' fill='%23a05000'/%3E%3Crect x='3' y='11' width='4' height='2' fill='%23704000'/%3E%3Crect x='9' y='11' width='4' height='2' fill='%23704000'/%3E%3Crect x='2' y='13' width='4' height='1' fill='%23704000'/%3E%3Crect x='10' y='13' width='4' height='1' fill='%23704000'/%3E%3C/svg%3E")
+    center/90% no-repeat;
+  width: var(--b);
+  aspect-ratio: 1;
+  position: fixed;
+  left: calc(var(--p)*var(--b));
+  --p: attr(p type(<integer>));
+  bottom: calc(2*var(--b));
+  animation: enemyWalk 0.5s steps(2) infinite, enemyPace var(--pace,3s) ease-in-out infinite alternate;
+  filter: drop-shadow(2px 2px 0 #000);
+  image-rendering: pixelated;
+}
+@keyframes enemyWalk { 0%{scale:1 1} 50%{scale:1.05 0.95} 100%{scale:1 1} }
+@keyframes enemyPace { from{translate: 0} to{translate: calc(-3*var(--b)) 0} }
+
+/* ────────────────────────────────────────────
+   DECORATIVE CLOUDS & HILLS
+──────────────────────────────────────────── */
+/* CSS-only decorative clouds */
+.cloud {
+  position: fixed;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  filter: blur(0px);
+  pointer-events: none;
+}
+
+/* ────────────────────────────────────────────
+   HUD — Score, Lives, Level, Timer
+──────────────────────────────────────────── */
+/* Score panel top-left */
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  translate: -50%;
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  background: var(--hud-bg);
+  border: 3px solid var(--hud-border);
+  border-radius: 6px;
+  padding: 8px 24px;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 20px #0008, inset 0 1px 0 #fff3;
+}
+.hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 70px;
+}
+.hud-label {
+  font-size: 10px;
+  color: #aad0ff;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.hud-value {
+  font-size: 20px;
+  color: #fff;
+  text-shadow: 2px 2px #000, 0 0 10px #5c94fc;
+  font-weight: bold;
+}
+/* ── Pixel heart icon before lives value ── */
+.hud-value.lives::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin-right: 5px;
+  vertical-align: middle;
+  image-rendering: pixelated;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 9' shape-rendering='crispEdges'%3E%3Crect x='1' y='1' width='2' height='1' fill='%23ff4444'/%3E%3Crect x='7' y='1' width='2' height='1' fill='%23ff4444'/%3E%3Crect x='0' y='2' width='10' height='3' fill='%23ff4444'/%3E%3Crect x='1' y='5' width='8' height='2' fill='%23ff4444'/%3E%3Crect x='2' y='7' width='6' height='1' fill='%23ff4444'/%3E%3Crect x='3' y='8' width='4' height='1' fill='%23ff4444'/%3E%3Crect x='1' y='2' width='2' height='1' fill='%23ff8888'/%3E%3Crect x='7' y='2' width='1' height='1' fill='%23ff8888'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* ── Pixel coin icon before coins value ── */
+.hud-value.coins::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 5px;
+  vertical-align: middle;
+  image-rendering: pixelated;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Crect x='3' y='0' width='4' height='1' fill='%23f8d800'/%3E%3Crect x='1' y='1' width='8' height='1' fill='%23f8d800'/%3E%3Crect x='0' y='2' width='10' height='6' fill='%23f8d800'/%3E%3Crect x='1' y='8' width='8' height='1' fill='%23f8d800'/%3E%3Crect x='3' y='9' width='4' height='1' fill='%23f8d800'/%3E%3Crect x='1' y='2' width='3' height='2' fill='%23fff8'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.hud-value.lives { color: #ff6b6b; }
+.hud-value.timer { color: var(--coin-gold); text-shadow: 2px 2px #000, 0 0 10px orange; }
+.hud-value.coins { color: var(--coin-gold); text-shadow: 2px 2px #000, 0 0 10px gold; }
+.hud-sep { width: 2px; height: 40px; background: #fff2; border-radius: 2px; }
+
+/* ────────────────────────────────────────────
+   TITLE BANNER
+──────────────────────────────────────────── */
+#title-banner {
+  content: "";
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  translate: -50%;
+  z-index: 90;
+  color: var(--text-light);
+  font-size: clamp(24px, 4vw, 46px);
+  text-shadow: 4px 4px #000, 0 0 20px #3070d8;
+  padding: 12px 36px;
+  background: linear-gradient(135deg, #994e00 0%, #c06000 50%, #7a3a00 100%);
+  border: 3px solid #ffccc5;
+  border-radius: 6px;
+  box-shadow: 0 8px 32px #0008, inset 0 1px 0 #fff2;
+  letter-spacing: 2px;
+  animation: bannerPulse 3s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes bannerPulse {
+  0%,100% { box-shadow: 0 8px 32px #0008, inset 0 1px 0 #fff2; }
+  50%      { box-shadow: 0 8px 32px #0008, inset 0 1px 0 #fff2, 0 0 24px #f8d80088; }
+}
+
+/* ────────────────────────────────────────────
+   INSTRUCTIONS (bottom left)
+──────────────────────────────────────────── */
+#instructions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-top: 2px solid #5c94fc;
+  border-right: 2px solid #5c94fc;
+  border-radius: 0 8px 0 0;
+  line-height: 1.8;
+  pointer-events: none;
+}
+
+/* ────────────────────────────────────────────
+   START OVERLAY
+──────────────────────────────────────────── */
+html:not(:has(:focus-within))::after {
+  content: "[ CLICK TO START ]";
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(28px, 4vw, 56px);
+  pointer-events: none;
+  background: rgba(0, 0, 30, 0.75);
+  color: #fff;
+  text-shadow: 4px 4px #000, 0 0 30px #5c94fc;
+  backdrop-filter: blur(8px);
+  z-index: 999;
+  animation: overlayPulse 2s ease-in-out infinite;
+  letter-spacing: 4px;
+}
+@keyframes overlayPulse {
+  0%,100% { opacity: 1 }
+  50%      { opacity: 0.75 }
+}
+
+/* ────────────────────────────────────────────
+   BROWSER SUPPORT WARNING
+──────────────────────────────────────────── */
+@supports not (animation-range: 0 100%) {
+  html::after {
+    content: "!! Please use Chrome to play !!" !important;
+    background: #fff !important;
+    color: #333 !important;
+    font-size: 40px;
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    z-index: 9999;
+  }
+}
+
+/* ────────────────────────────────────────────
+   GROUND DECORATION
+──────────────────────────────────────────── */
+#ground-strip {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: calc(2.2*var(--b));
+  background:
+    repeating-linear-gradient(90deg, #c84800 0, #c84800 calc(var(--b) - 2px), #a83600 calc(var(--b) - 2px), #a83600 var(--b)),
+    linear-gradient(180deg, #e05800 0%, #c84800 30%, #a83600 100%);
+  border-top: 4px solid #ff7822;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ────────────────────────────────────────────
+   COIN COUNTER POP
+──────────────────────────────────────────── */
+@keyframes coinPop {
+  0%   { scale: 1;   opacity: 1; translate: 0 0   }
+  80%  { scale: 1.4; opacity: 1; translate: 0 -20px }
+  100% { scale: 0.5; opacity: 0; translate: 0 -40px }
+}
+
+/* ── Score counter JS-driven ── */
+#score-counter {
+  counter-reset: score var(--score, 0);
+}
+
+/* ── Pixel-art shimmer on blocks ── */
+wall::after {
+  animation: blockShimmer 4s linear infinite;
+}
+@keyframes blockShimmer {
+  0%,90%,100% { filter: brightness(1) }
+  95%          { filter: brightness(1.3) }
+}
+</style>
+</head>
+<body tabindex="0">
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-item">
+      <span class="hud-label">Mario</span>
+      <span class="hud-value lives" id="lives" data-lives="3">x3</span>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <span class="hud-label">Score</span>
+      <span class="hud-value" id="score">000000</span>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <span class="hud-label">Coins</span>
+      <span class="hud-value coins" id="coin-count">x0</span>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <span class="hud-label">World</span>
+      <span class="hud-value">1-1</span>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-item">
+      <span class="hud-label">Time</span>
+      <span class="hud-value timer" id="timer">300</span>
+    </div>
+  </div>
+
+  <!-- Title -->
+  <div id="title-banner">* Super CSS Mario World *</div>
+
+  <!-- Instructions -->
+  <div id="instructions">
+    [<] [>] Move  |  [v] Jump  |  Collect coins for points!
+  </div>
+
+  <!-- Ground strip decoration -->
+  <div id="ground-strip"></div>
+
+  <!-- ─── WORLD 1-1 LAYOUT ─── -->
+
+  <!-- Opening run – intro platforms -->
+  <wall p="3"></wall>
+  <coin p="4"></coin>
+  <wall p="5"></wall>
+
+  <!-- Coin row over gap -->
+  <coin p="8"></coin>
+  <coin p="9"></coin>
+  <coin p="10"></coin>
+
+  <!-- Raised platform cluster 1 -->
+  <wall p="11"></wall>
+  <wall p="12"></wall>
+  <wall p="13"></wall>
+  <coin p="12" h="1"></coin>
+
+  <!-- Long platform with coins -->
+  <coin p="14"></coin>
+  <coin p="15"></coin>
+  <coin p="16"></coin>
+  <coin p="17"></coin>
+
+  <!-- Pipe 1 -->
+  <pipe p="20"></pipe>
+
+  <!-- Elevated section -->
+  <wall p="23" h="2"></wall>
+  <wall p="24" h="2"></wall>
+  <coin p="25" h="2"></coin>
+  <wall p="26" h="2"></wall>
+
+  <!-- Enemy patrol zone -->
+  <enemy p="28" style="--pace:3.5s"></enemy>
+
+  <!-- Ground coins leading to staircase -->
+  <coin p="30"></coin>
+  <coin p="31"></coin>
+  <coin p="32"></coin>
+
+  <!-- Staircase ascending -->
+  <wall p="33"></wall>
+  <wall p="34" h="1"></wall>
+  <wall p="35" h="2"></wall>
+  <wall p="36" h="3"></wall>
+  <star p="35" h="4"></star>
+
+  <!-- Gap + floating coins -->
+  <coin p="39"></coin>
+  <coin p="40"></coin>
+  <coin p="41"></coin>
+
+  <!-- Island platform -->
+  <wall p="42"></wall>
+  <wall p="43"></wall>
+  <wall p="44"></wall>
+  <mushroom p="43"></mushroom>
+
+  <!-- Pipe 2 - taller -->
+  <pipe p="47"></pipe>
+
+  <!-- Enemy 2 -->
+  <enemy p="50" style="--pace:4s"></enemy>
+
+  <!-- Long coin run -->
+  <coin p="52"></coin>
+  <coin p="53"></coin>
+  <coin p="54"></coin>
+  <coin p="55"></coin>
+  <coin p="56"></coin>
+
+  <!-- Elevated platform cluster 2 -->
+  <wall p="58" h="1"></wall>
+  <wall p="59" h="1"></wall>
+  <coin p="59" h="2"></coin>
+  <wall p="60" h="1"></wall>
+
+  <!-- Descending staircase -->
+  <wall p="63" h="3"></wall>
+  <wall p="64" h="2"></wall>
+  <wall p="65" h="1"></wall>
+  <wall p="66"></wall>
+
+  <!-- Final pipe -->
+  <pipe p="70"></pipe>
+
+  <!-- Final coin burst -->
+  <coin p="73"></coin>
+  <coin p="74"></coin>
+  <coin p="75"></coin>
+  <coin p="76"></coin>
+  <coin p="77"></coin>
+  <star p="75" h="2"></star>
+
+  <!-- Victory walls -->
+  <wall p="80"></wall>
+  <wall p="81"></wall>
+  <wall p="82"></wall>
+  <wall p="83"></wall>
+  <wall p="84"></wall>
+
+<script>
+// ── Simple score/coin/timer system ──
+const scoreEl   = document.getElementById('score');
+const coinEl    = document.getElementById('coin-count');
+const timerEl   = document.getElementById('timer');
+const livesEl   = document.getElementById('lives');
+
+let score = 0;
+let coins = 0;
+let timeLeft = 300;
+let lives = 3;
+let started = false;
+
+// Pad score to 6 digits
+function padScore(n) { return String(n).padStart(6,'0'); }
+
+// Tick timer once the page is focused
+document.addEventListener('focusin', () => {
+  if (!started) {
+    started = true;
+    const interval = setInterval(() => {
+      if (timeLeft > 0) {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 60) timerEl.style.color = '#ff5555';
+      } else {
+        clearInterval(interval);
+        timerEl.textContent = '000';
+      }
+    }, 1000);
+  }
+});
+
+// Simulate coin collection on scroll
+let lastX = 0;
+window.addEventListener('scroll', () => {
+  const progress = window.scrollX / (document.body.scrollWidth - window.innerWidth);
+  const expectedCoins = Math.floor(progress * 20); // rough estimate
+  if (expectedCoins > coins) {
+    const gained = expectedCoins - coins;
+    coins = expectedCoins;
+    score += gained * 200;
+    coinEl.textContent = `x${coins}`;
+    scoreEl.textContent = padScore(score);
+    // Bonus score for star zones
+    if (progress > 0.45 && progress < 0.55) score += 50;
+    scoreEl.textContent = padScore(score);
+  }
+});
+
+// Pixel art canvas background clouds (drawn once)
+(function drawClouds() {
+  const positions = [
+    {x:'8%', y:'18%', w:120, h:55},
+    {x:'22%',y:'10%', w:90,  h:40},
+    {x:'40%',y:'22%', w:150, h:65},
+    {x:'58%',y:'14%', w:110, h:48},
+    {x:'75%',y:'20%', w:100, h:45},
+    {x:'88%',y:'12%', w:130, h:55},
+  ];
+  positions.forEach(c => {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      position:fixed; pointer-events:none; z-index:2;
+      left:${c.x}; top:${c.y};
+      width:${c.w}px; height:${c.h}px;
+      background:rgba(255,255,255,0.88);
+      border-radius:50%;
+      box-shadow:
+        ${c.w*0.4}px ${-c.h*0.3}px 0 ${c.w*0.15}px rgba(255,255,255,0.88),
+        ${-c.w*0.35}px ${-c.h*0.25}px 0 ${c.w*0.1}px rgba(255,255,255,0.88),
+        0 ${-c.h*0.2}px 0 ${c.w*0.2}px rgba(255,255,255,0.88);
+      animation: cloudDrift ${8+Math.random()*6}s ease-in-out infinite alternate;
+    `;
+    document.body.appendChild(el);
+  });
+
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes cloudDrift {
+      from { translate: 0 0 }
+      to   { translate: 20px -8px }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+</script>
+</body>
+</html>
